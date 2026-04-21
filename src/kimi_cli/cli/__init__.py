@@ -21,14 +21,6 @@ class Reload(Exception):
         self.source_session: Session | None = None
 
 
-class SwitchToWeb(Exception):
-    """Switch to web interface."""
-
-    def __init__(self, session_id: str | None = None):
-        super().__init__("switch_to_web")
-        self.session_id = session_id
-
-
 class SwitchToVis(Exception):
     """Switch to vis (tracing visualizer) interface."""
 
@@ -588,9 +580,6 @@ def kimi(
                     raise r from e
                 e.source_session = session
                 raise
-            except SwitchToWeb:
-                preserve_background_tasks = True
-                raise
             except SwitchToVis:
                 preserve_background_tasks = True
                 raise
@@ -682,12 +671,6 @@ def kimi(
                     session_id = e.session_id
                     prefill_text = e.prefill_text
                     continue
-                except SwitchToWeb as e:
-                    if e.session_id is not None:
-                        session = await Session.find(work_dir, e.session_id)
-                        if session is not None:
-                            await _post_run(session, ExitCode.SUCCESS)
-                    return "web", ExitCode.SUCCESS
                 except SwitchToVis as e:
                     if e.session_id is not None:
                         session = await Session.find(work_dir, e.session_id)
@@ -697,7 +680,7 @@ def kimi(
             assert last_session is not None
             await _post_run(last_session, exit_code)
             return None, exit_code
-        except (SwitchToWeb, SwitchToVis):
+        except SwitchToVis:
             # Currently handled inside the loop (return), but re-raise explicitly
             # so the generic except below never treats them as unexpected errors.
             raise
@@ -778,7 +761,7 @@ def kimi(
                 "Run with --debug for full traceback, or run kimi export to share diagnostics."
             )
         raise typer.Exit(code=1) from exc
-    if switch_target in ("web", "vis"):
+    if switch_target == "vis":
         from kimi_cli.utils.logging import restore_stderr
 
         restore_stderr()
@@ -793,14 +776,9 @@ def kimi(
 
         ensure_tty_sane()
 
-        if switch_target == "web":
-            from kimi_cli.web.app import run_web_server
+        from kimi_cli.vis.app import run_vis_server
 
-            run_web_server(open_browser=True)
-        else:
-            from kimi_cli.vis.app import run_vis_server
-
-            run_vis_server(open_browser=True)
+        run_vis_server(open_browser=True)
     elif exit_code != ExitCode.SUCCESS:
         raise typer.Exit(code=exit_code)
 

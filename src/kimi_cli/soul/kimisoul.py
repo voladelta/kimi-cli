@@ -94,46 +94,6 @@ FLOW_COMMAND_PREFIX = "flow:"
 DEFAULT_MAX_FLOW_MOVES = 1000
 
 
-def classify_api_error(e: Exception) -> tuple[str, int | None]:
-    """Classify an LLM API exception into (error_type, status_code).
-
-    Exposed at module level so telemetry tests can import the real function
-    instead of duplicating the classification table.
-
-    Returns:
-        (error_type, status_code) where status_code is None for non-HTTP errors.
-    """
-    status_code: int | None = None
-    if isinstance(e, APIStatusError):
-        status = getattr(e, "status_code", getattr(e, "status", 0))
-        status_code = int(status) if status else None
-        if status == 429:
-            return "rate_limit", status_code
-        if status in (401, 403):
-            return "auth", status_code
-        if status >= 500:
-            return "5xx_server", status_code
-        if 400 <= status < 500:
-            msg_lower = str(e).lower()
-            if (
-                "context length" in msg_lower
-                or "context_length" in msg_lower
-                or "max tokens" in msg_lower
-                or "maximum context" in msg_lower
-                or "too many tokens" in msg_lower
-            ):
-                return "context_overflow", status_code
-            return "4xx_client", status_code
-        return "api", status_code
-    if isinstance(e, APIConnectionError):
-        return "network", None
-    if isinstance(e, (APITimeoutError, TimeoutError)):
-        return "timeout", None
-    if isinstance(e, APIEmptyResponseError):
-        return "empty_response", None
-    return "other", None
-
-
 type StepStopReason = Literal["no_tool_calls", "tool_rejected"]
 
 
@@ -685,9 +645,6 @@ class KimiSoul:
 
     def _make_skill_runner(self, skill: Skill) -> Callable[[KimiSoul, str], None | Awaitable[None]]:
         async def _run_skill(soul: KimiSoul, args: str, *, _skill: Skill = skill) -> None:
-            from kimi_cli.telemetry import track
-
-            track("skill_invoked", skill_name=_skill.name)
             skill_text = await read_skill_text(_skill)
             if skill_text is None:
                 wire_send(
@@ -759,14 +716,6 @@ class KimiSoul:
                     request_id=req_id,
                 )
                 wire_send(StepInterrupted())
-                # Track API/step errors
-                from kimi_cli.telemetry import track
-
-                error_type, status_code = classify_api_error(e)
-                if status_code is not None:
-                    track("api_error", error_type=error_type, status_code=status_code)
-                else:
-                    track("api_error", error_type=error_type)
                 # --- StopFailure hook ---
                 from kimi_cli.hooks import events as _hook_events
 
@@ -1041,14 +990,6 @@ class KimiSoul:
         try:
             compaction_result = await _compact_with_retry()
         except Exception:
-            from kimi_cli.telemetry import track
-
-            track(
-                "compaction_triggered",
-                trigger_type=trigger_reason,
-                before_tokens=before_tokens,
-                success=False,
-            )
             raise
         await self._context.clear()
         await self._context.write_system_prompt(self._agent.system_prompt)
@@ -1076,16 +1017,6 @@ class KimiSoul:
         await self._context.update_token_count(estimated_token_count)
 
         wire_send(CompactionEnd())
-
-        from kimi_cli.telemetry import track
-
-        track(
-            "compaction_triggered",
-            trigger_type=trigger_reason,
-            before_tokens=before_tokens,
-            after_tokens=estimated_token_count,
-            success=True,
-        )
 
         _hook_task = asyncio.create_task(
             self._hook_engine.trigger(
@@ -1273,9 +1204,7 @@ class FlowRunner:
             logger.warning("Agent flow {command} ignores args: {args}", command=command, args=args)
             return
         if self._name:
-            from kimi_cli.telemetry import track
-
-            track("flow_invoked", flow_name=self._name)
+            pass
 
         current_id = self._flow.begin_id
         moves = 0

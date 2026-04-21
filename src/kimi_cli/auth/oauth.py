@@ -209,9 +209,6 @@ def get_device_id() -> str:
     device_id = uuid.uuid4().hex
     path.write_text(device_id, encoding="utf-8")
     _ensure_private_file(path)
-    from kimi_cli.telemetry import track
-
-    track("first_launch")
     return device_id
 
 
@@ -968,24 +965,15 @@ class OAuthManager:
                         "OAuth credentials rejected: {error}",
                         error=exc,
                     )
-                    from kimi_cli.telemetry import track
-
-                    track("oauth_refresh", success=False, reason="unauthorized")
                     return
                 except Exception as exc:
                     if force:
                         raise
                     logger.warning("Failed to refresh OAuth token: {error}", error=exc)
-                    from kimi_cli.telemetry import track
-
-                    track("oauth_refresh", success=False, reason="network_or_other")
                     return
                 save_tokens(ref, refreshed)
                 self._cache_access_token(ref, refreshed)
                 self._apply_access_token(runtime, refreshed.access_token)
-                from kimi_cli.telemetry import track
-
-                track("oauth_refresh", success=True)
             finally:
                 xlock.release()
 

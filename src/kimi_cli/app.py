@@ -15,11 +15,10 @@ from kaos.path import KaosPath
 from pydantic import SecretStr
 
 from kimi_cli.agentspec import DEFAULT_AGENT_FILE
-from kimi_cli.auth.oauth import KIMI_CODE_OAUTH_KEY, OAuthManager, get_device_id
+from kimi_cli.auth.oauth import OAuthManager
 from kimi_cli.background.models import is_terminal_status
 from kimi_cli.cli import InputFormat, OutputFormat
 from kimi_cli.config import Config, LLMModel, LLMProvider, load_config
-from kimi_cli.constant import VERSION
 from kimi_cli.llm import augment_provider_with_env_vars, create_llm, model_display_name
 from kimi_cli.session import Session
 from kimi_cli.share import get_share_dir
@@ -28,7 +27,6 @@ from kimi_cli.soul.agent import Runtime, load_agent
 from kimi_cli.soul.context import Context
 from kimi_cli.soul.kimisoul import KimiSoul
 from kimi_cli.utils.aioqueue import QueueShutDown
-from kimi_cli.utils.envvar import get_env_bool
 from kimi_cli.utils.logging import logger, open_original_stderr, redirect_stderr_to_logger
 from kimi_cli.utils.path import shorten_home
 from kimi_cli.wire import Wire, WireUISide
@@ -298,47 +296,6 @@ class KimiCLI:
         hook_engine = HookEngine(config.hooks, cwd=str(session.work_dir))
         soul.set_hook_engine(hook_engine)
         runtime.hook_engine = hook_engine
-
-        # --- Initialize telemetry ---
-        from kimi_cli.telemetry import attach_sink, set_context
-        from kimi_cli.telemetry import disable as disable_telemetry
-
-        telemetry_disabled = not config.telemetry or get_env_bool("KIMI_DISABLE_TELEMETRY")
-        if telemetry_disabled:
-            disable_telemetry()
-        else:
-            device_id = get_device_id()
-            set_context(device_id=device_id, session_id=session.id)
-            from kimi_cli.telemetry.sink import EventSink
-            from kimi_cli.telemetry.transport import AsyncTransport
-
-            def _get_token() -> str | None:
-                return oauth.get_cached_access_token(KIMI_CODE_OAUTH_KEY)
-
-            transport = AsyncTransport(device_id=device_id, get_access_token=_get_token)
-            sink = EventSink(
-                transport,
-                version=VERSION,
-                model=model.model if model else "",
-                ui_mode=ui_mode,
-            )
-            attach_sink(sink)
-
-        from kimi_cli.telemetry import track
-        from kimi_cli.telemetry.crash import install_asyncio_handler, set_phase
-
-        # App init finished — enter runtime phase and hook asyncio crashes.
-        install_asyncio_handler()
-        set_phase("runtime")
-
-        track("started", resumed=resumed, yolo=yolo)
-        track(
-            "startup_perf",
-            duration_ms=int((time.monotonic() - _create_t0) * 1000),
-            config_ms=_phase_timings_ms.get("config_ms", 0),
-            init_ms=_phase_timings_ms.get("init_ms", 0),
-            agent_load_ms=_phase_timings_ms.get("load_agent_ms", 0),
-        )
 
         return KimiCLI(soul, runtime, env_overrides, bg_refresh_task)
 

@@ -164,9 +164,6 @@ class _LiveView:
                 # Handle Ctrl+E specially - pause Live while the pager is active
                 if event == KeyEvent.CTRL_E:
                     if self.has_expandable_panel():
-                        from kimi_cli.telemetry import track
-
-                        track("shortcut_expand")
                         await listener.pause()
                         live.stop()
                         try:
@@ -469,9 +466,6 @@ class _LiveView:
             return
         all_done = panel.submit()
         if all_done:
-            from kimi_cli.telemetry import track
-
-            track("question_answered", method=method)
             panel.request.resolve(panel.get_answers())
             self.show_next_question_request()
 
@@ -496,9 +490,6 @@ class _LiveView:
                     # "Other" is handled in keyboard_handler (async context)
                     self._try_submit_question(method="enter")
                 case KeyEvent.ESCAPE:
-                    from kimi_cli.telemetry import track
-
-                    track("question_dismissed")
                     self._current_question_panel.request.resolve({})
                     self.show_next_question_request()
                 case (
@@ -533,9 +524,6 @@ class _LiveView:
 
         # handle ESC key to cancel the run
         if event == KeyEvent.ESCAPE and self._cancel_event is not None:
-            from kimi_cli.telemetry import track
-
-            track("cancel")
             self._cancel_event.set()
             return
 

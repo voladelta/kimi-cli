@@ -241,18 +241,6 @@ class HookEngine:
             logger.warning("Hook engine error for {}, failing open", event)
             return []
 
-        # Telemetry runs outside the fail-open try: a telemetry failure
-        # must NEVER discard hook results. For security-critical hooks
-        # (PreToolUse block), treating a sink failure as fail-open would
-        # silently bypass the block.
-        try:
-            from kimi_cli.telemetry import track
-
-            has_block = any(r.action == "block" for r in results)
-            track("hook_triggered", event_type=event, action="block" if has_block else "allow")
-        except Exception:
-            logger.debug("Telemetry for hook_triggered failed")
-
         return results
 
     async def _execute_hooks(
