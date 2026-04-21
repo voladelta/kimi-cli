@@ -14,7 +14,7 @@ If running tools directly, use `uv run ...`.
 ## Project overview
 
 Kimi Code CLI is a Python CLI agent for software engineering workflows. It supports an interactive
-shell UI, ACP server mode for IDE integrations, and MCP tool loading.
+shell UI.
 
 ## Tech stack
 
@@ -22,14 +22,13 @@ shell UI, ACP server mode for IDE integrations, and MCP tool loading.
 - CLI framework: Typer
 - Async runtime: asyncio
 - LLM framework: kosong
-- MCP integration: fastmcp
 - Logging: loguru
 - Package management/build: uv + uv_build; PyInstaller for binaries
 - Tests: pytest + pytest-asyncio; lint/format: ruff; types: pyright + ty
 
 ## Architecture overview
 
-- **CLI entry**: `src/kimi_cli/cli/__init__.py` (Typer) parses flags (UI mode, agent spec, config, MCP)
+- **CLI entry**: `src/kimi_cli/cli/__init__.py` (Typer) parses flags (UI mode, agent spec, config)
   and routes into `KimiCLI` in `src/kimi_cli/app.py`.
 - **App/runtime setup**: `KimiCLI.create` loads config (`src/kimi_cli/config.py`), chooses a
   model/provider (`src/kimi_cli/llm.py`), builds a `Runtime` (`src/kimi_cli/soul/agent.py`),
@@ -42,8 +41,7 @@ shell UI, ACP server mode for IDE integrations, and MCP tool loading.
   (this file is injected via `KIMI_AGENTS_MD`).
 - **Tooling**: `src/kimi_cli/soul/toolset.py` loads tools by import path, injects dependencies,
   and runs tool calls. Built-in tools live in `src/kimi_cli/tools/` (agent, shell, file, web,
-  todo, background, dmail, think, plan). MCP tools are loaded via `fastmcp`; CLI management is
-  in `src/kimi_cli/mcp.py` and stored in the share dir.
+  todo, background, dmail, think, plan).
 - **Subagents**: `LaborMarket` in `src/kimi_cli/soul/agent.py` registers builtin subagent types.
   The `Agent` tool (`src/kimi_cli/tools/agent/`) creates or resumes subagent instances, while
   `SubagentStore` persists instance metadata, prompts, wire logs, and context under
@@ -57,7 +55,7 @@ shell UI, ACP server mode for IDE integrations, and MCP tool loading.
   and approval requests are projected onto the root wire stream for Shell/Web style UIs.
 - **UI/Wire**: `src/kimi_cli/soul/run_soul` connects `KimiSoul` to a `Wire`
   (`src/kimi_cli/wire/`) so UI loops can stream events. UIs live in `src/kimi_cli/ui/`
-  (shell/print/acp/wire).
+  (shell/print/wire).
 - **Shell UI**: `src/kimi_cli/ui/shell/` handles interactive TUI input, shell command mode,
   and slash command autocomplete; it is the default interactive experience.
 - **Slash commands**: Soul-level commands live in `src/kimi_cli/soul/slash.py`; shell-level
@@ -75,8 +73,8 @@ shell UI, ACP server mode for IDE integrations, and MCP tool loading.
   messages and executes tools via `KimiToolset`.
 - `src/kimi_cli/soul/context.py`: conversation history + checkpoints; used by DMail for
   checkpointed replies.
-- `src/kimi_cli/soul/toolset.py`: load tools, run tool calls, bridge to MCP tools.
-- `src/kimi_cli/ui/*`: shell/print/acp frontends; they consume `Wire` messages.
+- `src/kimi_cli/soul/toolset.py`: load tools, run tool calls.
+- `src/kimi_cli/ui/*`: shell/print frontends; they consume `Wire` messages.
 - `src/kimi_cli/wire/*`: event types and transport used between soul and UI.
 
 ## Repo map
@@ -85,9 +83,7 @@ shell UI, ACP server mode for IDE integrations, and MCP tool loading.
 - `src/kimi_cli/prompts/`: shared prompt templates
 - `src/kimi_cli/soul/`: core runtime/loop, context, compaction, approvals
 - `src/kimi_cli/tools/`: built-in tools
-- `src/kimi_cli/ui/`: UI frontends (shell/print/acp/wire)
-- `src/kimi_cli/acp/`: ACP server components
-- `packages/kosong/`, `packages/kaos/`: workspace deps
+- `src/kimi_cli/ui/`: UI frontends (shell/print/wire)- `packages/kosong/`, `packages/kaos/`: workspace deps
   + Kosong is an LLM abstraction layer designed for modern AI agent applications.
     It unifies message structures, asynchronous tool orchestration, and pluggable
     chat providers so you can build agents with ease and avoid vendor lock-in.

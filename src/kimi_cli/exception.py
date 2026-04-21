@@ -30,14 +30,3 @@ class SystemPromptTemplateError(KimiCLIException, ValueError):
 
     pass
 
-
-class MCPConfigError(KimiCLIException, ValueError):
-    """MCP config error."""
-
-    pass
-
-
-class MCPRuntimeError(KimiCLIException, RuntimeError):
-    """MCP runtime error."""
-
-    pass

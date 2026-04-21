@@ -14,7 +14,6 @@ from kimi_cli.exception import ConfigError
 from kimi_cli.session import Session
 from kimi_cli.soul.kimisoul import KimiSoul
 from kimi_cli.ui.shell.console import console
-from kimi_cli.ui.shell.mcp_status import render_mcp_console
 from kimi_cli.ui.shell.task_browser import TaskBrowserApp
 from kimi_cli.utils.changelog import CHANGELOG
 from kimi_cli.utils.slashcmd import SlashCommand, SlashCommandRegistry
@@ -678,47 +677,6 @@ def vis(app: Shell, args: str):
     soul = ensure_kimi_soul(app)
     session_id = soul.runtime.session.id if soul else None
     raise SwitchToVis(session_id=session_id)
-
-
-@registry.command
-async def mcp(app: Shell, args: str):
-    """Show MCP servers and tools"""
-    from rich.live import Live
-
-    soul = ensure_kimi_soul(app)
-    if soul is None:
-        return
-    await soul.start_background_mcp_loading()
-    snapshot = soul.status.mcp_status
-    if snapshot is None:
-        console.print("[yellow]No MCP servers configured.[/yellow]")
-        return
-
-    if not snapshot.loading:
-        console.print(render_mcp_console(snapshot))
-        return
-
-    with Live(
-        render_mcp_console(snapshot),
-        console=console,
-        refresh_per_second=8,
-        transient=False,
-    ) as live:
-        while True:
-            snapshot = soul.status.mcp_status
-            if snapshot is None:
-                break
-            live.update(render_mcp_console(snapshot), refresh=True)
-            if not snapshot.loading:
-                break
-            await asyncio.sleep(0.125)
-        try:
-            await soul.wait_for_background_mcp_loading()
-        except Exception as e:
-            logger.debug("MCP loading completed with error while rendering /mcp: {error}", error=e)
-        snapshot = soul.status.mcp_status
-        if snapshot is not None:
-            live.update(render_mcp_console(snapshot), refresh=True)
 
 
 @registry.command

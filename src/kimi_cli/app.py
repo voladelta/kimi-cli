@@ -337,7 +337,7 @@ class KimiCLI:
             duration_ms=int((time.monotonic() - _create_t0) * 1000),
             config_ms=_phase_timings_ms.get("config_ms", 0),
             init_ms=_phase_timings_ms.get("init_ms", 0),
-            mcp_ms=_phase_timings_ms.get("load_agent_ms", 0),
+            agent_load_ms=_phase_timings_ms.get("load_agent_ms", 0),
         )
 
         return KimiCLI(soul, runtime, env_overrides, bg_refresh_task)
@@ -733,18 +733,4 @@ class KimiCLI:
             )
             return await print_.run(command)
 
-    async def run_acp(self) -> None:
-        """Run the Kimi Code CLI instance as ACP server."""
-        from kimi_cli.ui.acp import ACP
 
-        async with self._env():
-            acp = ACP(self._soul)
-            await acp.run()
-
-    async def run_wire_stdio(self) -> None:
-        """Run the Kimi Code CLI instance as Wire server over stdio."""
-        from kimi_cli.wire.server import WireServer
-
-        async with self._env():
-            server = WireServer(self._soul)
-            await server.serve()

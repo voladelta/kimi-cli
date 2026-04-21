@@ -126,36 +126,6 @@ class HookResolved(BaseModel):
     """Wall-clock time for the entire batch, in milliseconds."""
 
 
-class MCPLoadingBegin(BaseModel):
-    """Indicates that MCP tool loading is in progress."""
-
-    pass
-
-
-class MCPLoadingEnd(BaseModel):
-    """Indicates that MCP tool loading has finished."""
-
-    pass
-
-
-class MCPServerSnapshot(BaseModel):
-    """A snapshot of one MCP server during startup."""
-
-    name: str
-    status: Literal["pending", "connecting", "connected", "failed", "unauthorized"]
-    tools: tuple[str, ...] = ()
-
-
-class MCPStatusSnapshot(BaseModel):
-    """A snapshot of MCP startup progress."""
-
-    loading: bool
-    connected: int
-    total: int
-    tools: int
-    servers: tuple[MCPServerSnapshot, ...] = ()
-
-
 class StatusUpdate(BaseModel):
     """
     An update on the current status of the soul.
@@ -174,8 +144,6 @@ class StatusUpdate(BaseModel):
     """The message ID of the current step."""
     plan_mode: bool | None = None
     """Whether plan mode (read-only) is active. None means no change."""
-    mcp_status: MCPStatusSnapshot | None = None
-    """The current MCP startup snapshot. None means no change."""
 
 
 class Notification(BaseModel):
@@ -506,8 +474,6 @@ type Event = (
     | HookResolved
     | CompactionBegin
     | CompactionEnd
-    | MCPLoadingBegin
-    | MCPLoadingEnd
     | StatusUpdate
     | Notification
     | ContentPart
@@ -652,11 +618,7 @@ __all__ = [
     "StepInterrupted",
     "CompactionBegin",
     "CompactionEnd",
-    "MCPLoadingBegin",
-    "MCPLoadingEnd",
     "StatusUpdate",
-    "MCPServerSnapshot",
-    "MCPStatusSnapshot",
     "Notification",
     "ContentPart",
     "ToolCall",

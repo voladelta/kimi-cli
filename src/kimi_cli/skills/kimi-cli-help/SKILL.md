@@ -39,7 +39,6 @@ https://moonshotai.github.io/kimi-cli/llms.txt
 | Slash commands | `/en/reference/slash-commands.md` |
 | CLI flags | `/en/reference/kimi-command.md` |
 | Keyboard shortcuts | `/en/reference/keyboard.md` |
-| MCP | `/en/customization/mcp.md` |
 | Agents | `/en/customization/agents.md` |
 | Skills | `/en/customization/skills.md` |
 | FAQ | `/en/faq.md` |

@@ -12,7 +12,7 @@ from kimi_cli.utils.aioqueue import QueueShutDown
 from kimi_cli.utils.logging import logger
 from kimi_cli.wire import Wire
 from kimi_cli.wire.file import WireFile
-from kimi_cli.wire.types import ContentPart, MCPStatusSnapshot, WireMessage
+from kimi_cli.wire.types import ContentPart, WireMessage
 
 if TYPE_CHECKING:
     from kimi_cli.llm import LLM, ModelCapability
@@ -94,8 +94,6 @@ class StatusSnapshot:
     """The number of tokens currently in the context."""
     max_context_tokens: int = 0
     """The maximum number of tokens the context can hold."""
-    mcp_status: MCPStatusSnapshot | None = None
-    """The current MCP startup snapshot, if MCP is configured."""
 
 
 @runtime_checkable

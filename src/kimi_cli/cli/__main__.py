@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     # Same entry treatment as kimi_cli.__main__: install excepthook before
     # anything else so startup-phase crashes in subcommand subprocesses
-    # (background-task-worker, __web-worker, acp via toad) are captured.
+    # (background-task-worker, __web-worker) are captured.
     install_crash_handlers()
     normalize_proxy_env()
     try:

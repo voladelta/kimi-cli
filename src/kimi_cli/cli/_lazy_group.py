@@ -16,7 +16,6 @@ class LazySubcommandGroup(typer.core.TyperGroup):
     lazy_subcommands: dict[str, tuple[str, str, str]] = {
         "info": ("kimi_cli.cli.info", "cli", "Show version and protocol information."),
         "export": ("kimi_cli.cli.export", "cli", "Export session data."),
-        "mcp": ("kimi_cli.cli.mcp", "cli", "Manage MCP server configurations."),
         "plugin": ("kimi_cli.cli.plugin", "cli", "Manage plugins."),
         "vis": ("kimi_cli.cli.vis", "cli", "Run Kimi Agent Tracing Visualizer."),
         "web": ("kimi_cli.cli.web", "cli", "Run Kimi Code CLI web interface."),
@@ -24,7 +23,6 @@ class LazySubcommandGroup(typer.core.TyperGroup):
     lazy_command_order: tuple[str, ...] = (
         "info",
         "export",
-        "mcp",
         "plugin",
         "vis",
         "web",

@@ -164,21 +164,6 @@ class Services(BaseModel):
     """Moonshot Fetch configuration."""
 
 
-class MCPClientConfig(BaseModel):
-    """MCP client configuration."""
-
-    tool_call_timeout_ms: int = 60000
-    """Timeout for tool calls in milliseconds."""
-
-
-class MCPConfig(BaseModel):
-    """MCP configuration."""
-
-    client: MCPClientConfig = Field(
-        default_factory=MCPClientConfig, description="MCP client configuration"
-    )
-
-
 class Config(BaseModel):
     """Main configuration structure."""
 
@@ -226,7 +211,6 @@ class Config(BaseModel):
         default_factory=NotificationConfig, description="Notification configuration"
     )
     services: Services = Field(default_factory=Services, description="Services configuration")
-    mcp: MCPConfig = Field(default_factory=MCPConfig, description="MCP configuration")
     hooks: list[HookDef] = Field(default_factory=list, description="Hook definitions")  # pyright: ignore[reportUnknownVariableType]
     merge_all_available_skills: bool = Field(
         default=False,

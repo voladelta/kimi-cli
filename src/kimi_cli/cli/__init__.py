@@ -47,7 +47,7 @@ LLM friendly version: https://moonshotai.github.io/kimi-cli/llms.txt""",
     help="Kimi, your next CLI agent.",
 )
 
-UIMode = Literal["shell", "print", "acp", "wire"]
+UIMode = Literal["shell", "print"]
 
 
 class ExitCode:
@@ -222,20 +222,6 @@ def kimi(
             ),
         ),
     ] = False,
-    acp_mode: Annotated[
-        bool,
-        typer.Option(
-            "--acp",
-            help="(Deprecated, use `kimi acp` instead) Run as ACP server.",
-        ),
-    ] = False,
-    wire_mode: Annotated[
-        bool,
-        typer.Option(
-            "--wire",
-            help="Run as Wire server (experimental).",
-        ),
-    ] = False,
     input_format: Annotated[
         InputFormat | None,
         typer.Option(
@@ -285,30 +271,6 @@ def kimi(
             dir_okay=False,
             readable=True,
             help="Custom agent specification file. Default: builtin default agent.",
-        ),
-    ] = None,
-    mcp_config_file: Annotated[
-        list[Path] | None,
-        typer.Option(
-            "--mcp-config-file",
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            readable=True,
-            help=(
-                "MCP config file to load. Add this option multiple times to specify multiple MCP "
-                "configs. Default: none."
-            ),
-        ),
-    ] = None,
-    mcp_config: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--mcp-config",
-            help=(
-                "MCP config JSON to load. Add this option multiple times to specify multiple MCP "
-                "configs. Default: none."
-            ),
         ),
     ] = None,
     local_skills_dir: Annotated[
@@ -377,8 +339,6 @@ def kimi(
     from kimi_cli.ui.shell.startup import ShellStartupProgress
     from kimi_cli.utils.logging import logger, open_original_stderr, redirect_stderr_to_logger
 
-    from .mcp import get_global_mcp_config_file
-
     # Don't redirect stderr during argument parsing. Our stderr redirector
     # replaces fd=2 with a pipe, which would swallow Click/Typer startup errors.
     # Redirection is installed later, right before KimiCLI.create(), so that
@@ -406,11 +366,6 @@ def kimi(
             _picker_mode = True
 
     if quiet:
-        if acp_mode or wire_mode:
-            raise typer.BadParameter(
-                "Quiet mode cannot be combined with ACP or Wire UI",
-                param_hint="--quiet",
-            )
         if output_format not in (None, "text"):
             raise typer.BadParameter(
                 "Quiet mode implies `--output-format text`",
@@ -423,8 +378,6 @@ def kimi(
     conflict_option_sets = [
         {
             "--print": print_mode,
-            "--acp": acp_mode,
-            "--wire": wire_mode,
         },
         {
             "--agent": agent is not None,
@@ -457,10 +410,6 @@ def kimi(
     ui: UIMode = "shell"
     if print_mode:
         ui = "print"
-    elif acp_mode:
-        ui = "acp"
-    elif wire_mode:
-        ui = "wire"
 
     if prompt is not None:
         prompt = prompt.strip()
@@ -499,25 +448,6 @@ def kimi(
             raise typer.BadParameter(str(e), param_hint="--config") from e
     elif config_file is not None:
         config = config_file
-
-    file_configs = list(mcp_config_file or [])
-    raw_mcp_config = list(mcp_config or [])
-
-    # Use default MCP config file if no MCP config is provided
-    if not file_configs:
-        default_mcp_file = get_global_mcp_config_file()
-        if default_mcp_file.exists():
-            file_configs.append(default_mcp_file)
-
-    try:
-        mcp_configs = [json.loads(conf.read_text(encoding="utf-8")) for conf in file_configs]
-    except json.JSONDecodeError as e:
-        raise typer.BadParameter(f"Invalid JSON: {e}", param_hint="--mcp-config-file") from e
-
-    try:
-        mcp_configs += [json.loads(conf) for conf in raw_mcp_config]
-    except json.JSONDecodeError as e:
-        raise typer.BadParameter(f"Invalid JSON: {e}", param_hint="--mcp-config") from e
 
     skills_dirs: list[KaosPath] | None = None
     if local_skills_dir:
@@ -595,8 +525,8 @@ def kimi(
                 if changed:
                     session.save_state()
 
-            # Redirect stderr *before* KimiCLI.create() so that MCP server
-            # subprocesses (e.g. mcp-remote OAuth debug logs) write to the log
+            # Redirect stderr *before* KimiCLI.create() so that subprocess
+            # noise writes to the log
             # file instead of polluting the user's terminal.  CLI argument
             # parsing has already succeeded at this point, so Typer/Click
             # startup errors are no longer a concern.  Fatal errors from
@@ -613,13 +543,11 @@ def kimi(
                 plan_mode=plan,
                 resumed=resumed,
                 agent_file=agent_file,
-                mcp_configs=mcp_configs,
                 skills_dirs=skills_dirs,
                 max_steps_per_turn=max_steps_per_turn,
                 max_retries_per_step=max_retries_per_step,
                 max_ralph_iterations=max_ralph_iterations,
                 startup_progress=startup_progress.update if ui == "shell" else None,
-                defer_mcp_loading=ui == "shell" and prompt is None,
                 ui_mode=ui,
             )
             startup_progress.stop()
@@ -652,16 +580,6 @@ def kimi(
                             prompt,
                             final_only=final_message_only,
                         )
-                    case "acp":
-                        if prompt is not None:
-                            logger.warning("ACP server ignores prompt argument")
-                        await instance.run_acp()
-                        exit_code = ExitCode.SUCCESS
-                    case "wire":
-                        if prompt is not None:
-                            logger.warning("Wire server ignores prompt argument")
-                        await instance.run_wire_stdio()
-                        exit_code = ExitCode.SUCCESS
             except Reload as e:
                 preserve_background_tasks = True
                 if e.session_id is None:
@@ -990,78 +908,4 @@ def logout(
         raise typer.Exit(code=1)
 
 
-@cli.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
-def term(
-    ctx: typer.Context,
-) -> None:
-    """Run Toad TUI backed by Kimi Code CLI ACP server."""
-    from .toad import run_term
 
-    run_term(ctx)
-
-
-@cli.command()
-def acp():
-    """Run Kimi Code CLI ACP server."""
-    from kimi_cli.acp import acp_main
-
-    acp_main()
-
-
-@cli.command(name="__background-task-worker", hidden=True)
-def background_task_worker(
-    task_dir: Annotated[Path, typer.Option("--task-dir")],
-    heartbeat_interval_ms: Annotated[int, typer.Option("--heartbeat-interval-ms")] = 5000,
-    control_poll_interval_ms: Annotated[int, typer.Option("--control-poll-interval-ms")] = 500,
-    kill_grace_period_ms: Annotated[int, typer.Option("--kill-grace-period-ms")] = 2000,
-) -> None:
-    """Run background task worker subprocess (internal)."""
-    import asyncio
-
-    from kimi_cli.background import run_background_task_worker
-    from kimi_cli.utils.proctitle import set_process_title
-
-    set_process_title("kimi-code-bg-worker")
-
-    from kimi_cli.app import enable_logging
-
-    enable_logging(debug=False)
-    asyncio.run(
-        run_background_task_worker(
-            task_dir,
-            heartbeat_interval_ms=heartbeat_interval_ms,
-            control_poll_interval_ms=control_poll_interval_ms,
-            kill_grace_period_ms=kill_grace_period_ms,
-        )
-    )
-
-
-@cli.command(name="__web-worker", hidden=True)
-def web_worker(session_id: str) -> None:
-    """Run web worker subprocess (internal)."""
-    import asyncio
-    from uuid import UUID
-
-    from kimi_cli.utils.proctitle import set_process_title
-
-    set_process_title("kimi-code-worker")
-
-    from kimi_cli.app import enable_logging
-    from kimi_cli.web.runner.worker import run_worker
-
-    try:
-        parsed_session_id = UUID(session_id)
-    except ValueError as exc:
-        raise typer.BadParameter(f"Invalid session ID: {session_id}") from exc
-
-    enable_logging(debug=False)
-    asyncio.run(run_worker(parsed_session_id))
-
-
-if __name__ == "__main__":
-    import sys
-
-    if "kimi_cli.cli" not in sys.modules:
-        sys.modules["kimi_cli.cli"] = sys.modules[__name__]
-
-    sys.exit(cli())

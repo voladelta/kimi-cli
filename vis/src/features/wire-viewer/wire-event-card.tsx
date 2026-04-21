@@ -61,10 +61,6 @@ export const TYPE_COLORS: Record<string, string> = {
     "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
   CompactionEnd:
     "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
-  MCPLoadingBegin:
-    "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
-  MCPLoadingEnd:
-    "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30",
   StatusUpdate:
     "bg-gray-500/15 text-gray-700 dark:text-gray-300 border-gray-500/30",
   Notification:
@@ -245,11 +241,6 @@ function getSummary(event: WireEvent): string {
           parts.push(`in: ${(totalInput / 1000).toFixed(1)}k (${cacheRate}% cache)`);
         }
         if (output > 0) parts.push(`out: ${(output / 1000).toFixed(1)}k`);
-      }
-      // MCP status
-      const mcp = p.mcp_status as Record<string, unknown> | undefined;
-      if (mcp && mcp.connected != null) {
-        parts.push(`MCP: ${mcp.connected}/${mcp.total} (${mcp.tools} tools)`);
       }
       return parts.join("  ·  ");
     }

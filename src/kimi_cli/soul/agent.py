@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-import pydantic
 from jinja2 import Environment as JinjaEnvironment
 from jinja2 import FileSystemLoader, StrictUndefined, TemplateError, UndefinedError
 from kaos.path import KaosPath
@@ -17,7 +16,7 @@ from kimi_cli.approval_runtime import ApprovalRuntime
 from kimi_cli.auth.oauth import OAuthManager
 from kimi_cli.background import BackgroundTaskManager
 from kimi_cli.config import Config
-from kimi_cli.exception import MCPConfigError, SystemPromptTemplateError
+from kimi_cli.exception import SystemPromptTemplateError
 from kimi_cli.llm import LLM
 from kimi_cli.notifications import NotificationManager
 from kimi_cli.session import Session
@@ -38,8 +37,7 @@ from kimi_cli.utils.logging import logger
 from kimi_cli.utils.path import is_within_directory, list_directory
 from kimi_cli.wire.root_hub import RootWireHub
 
-if TYPE_CHECKING:
-    from fastmcp.mcp_config import MCPConfig
+
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -393,9 +391,6 @@ class Agent:
 async def load_agent(
     agent_file: Path,
     runtime: Runtime,
-    *,
-    mcp_configs: list[MCPConfig] | list[dict[str, Any]] | None = None,
-    start_mcp_loading: bool = True,
 ) -> Agent:
     """
     Load agent from specification file.
@@ -471,25 +466,6 @@ async def load_agent(
             )
             continue
         toolset.add(plugin_tool)
-
-    if mcp_configs:
-        validated_mcp_configs: list[MCPConfig] = []
-        if mcp_configs:
-            from fastmcp.mcp_config import MCPConfig
-
-            for mcp_config in mcp_configs:
-                try:
-                    validated_mcp_configs.append(
-                        mcp_config
-                        if isinstance(mcp_config, MCPConfig)
-                        else MCPConfig.model_validate(mcp_config)
-                    )
-                except pydantic.ValidationError as e:
-                    raise MCPConfigError(f"Invalid MCP config: {e}") from e
-        if start_mcp_loading:
-            await toolset.load_mcp_tools(validated_mcp_configs, runtime, in_background=True)
-        else:
-            toolset.defer_mcp_tool_loading(validated_mcp_configs, runtime)
 
     return Agent(
         name=agent_spec.name,

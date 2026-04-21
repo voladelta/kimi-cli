@@ -26,35 +26,23 @@ from kosong.tooling.error import (
     ToolParseError,
     ToolRuntimeError,
 )
-from kosong.tooling.mcp import convert_mcp_content
 from kosong.utils.typing import JsonType
 
 from kimi_cli import logger
-from kimi_cli.exception import InvalidToolError, MCPRuntimeError
+from kimi_cli.exception import InvalidToolError
 from kimi_cli.hooks.engine import HookEngine
 from kimi_cli.tools import SkipThisTool
 from kimi_cli.wire.types import (
-    AudioURLPart,
     ContentPart,
-    ImageURLPart,
-    MCPServerSnapshot,
-    MCPStatusSnapshot,
     TextPart,
     ToolCall,
     ToolCallRequest,
     ToolResult,
     ToolReturnValue,
-    VideoURLPart,
 )
 
 if TYPE_CHECKING:
-    import fastmcp
-    import mcp
-    from fastmcp.client.client import CallToolResult
-    from fastmcp.client.transports import ClientTransport
-    from fastmcp.mcp_config import MCPConfig
-
-    from kimi_cli.soul.agent import Runtime
+     from kimi_cli.soul.agent import Runtime
 
 current_tool_call = ContextVar[ToolCall | None]("current_tool_call", default=None)
 
@@ -94,9 +82,6 @@ class KimiToolset:
     def __init__(self) -> None:
         self._tool_dict: dict[str, ToolType] = {}
         self._hidden_tools: set[str] = set()
-        self._mcp_servers: dict[str, MCPServerInfo] = {}
-        self._mcp_loading_task: asyncio.Task[None] | None = None
-        self._deferred_mcp_load: tuple[list[MCPConfig], Runtime] | None = None
         self._hook_engine: HookEngine = HookEngine()
 
     def set_hook_engine(self, engine: HookEngine) -> None:
@@ -293,53 +278,6 @@ class KimiToolset:
         self.add(tool)
         return True, None
 
-    @property
-    def mcp_servers(self) -> dict[str, MCPServerInfo]:
-        """Get MCP servers info."""
-        return self._mcp_servers
-
-    def mcp_status_snapshot(self) -> MCPStatusSnapshot | None:
-        """Return a read-only snapshot of current MCP startup state."""
-        if not self._mcp_servers:
-            return None
-
-        servers = tuple(
-            MCPServerSnapshot(
-                name=name,
-                status=info.status,
-                tools=tuple(tool.name for tool in info.tools),
-            )
-            for name, info in self._mcp_servers.items()
-        )
-        return MCPStatusSnapshot(
-            loading=self.has_pending_mcp_tools(),
-            connected=sum(1 for server in servers if server.status == "connected"),
-            total=len(servers),
-            tools=sum(len(server.tools) for server in servers),
-            servers=servers,
-        )
-
-    def defer_mcp_tool_loading(self, mcp_configs: list[MCPConfig], runtime: Runtime) -> None:
-        """Store MCP configs for a later background startup."""
-        self._deferred_mcp_load = (list(mcp_configs), runtime)
-
-    def has_deferred_mcp_tools(self) -> bool:
-        """Return True when MCP loading is configured but has not started yet."""
-        return self._deferred_mcp_load is not None
-
-    async def start_deferred_mcp_tool_loading(self) -> bool:
-        """Start any deferred MCP loading in the background."""
-        if self._deferred_mcp_load is None:
-            return False
-        if self._mcp_loading_task is not None or self._mcp_servers:
-            self._deferred_mcp_load = None
-            return False
-
-        mcp_configs, runtime = self._deferred_mcp_load
-        self._deferred_mcp_load = None
-        await self.load_mcp_tools(mcp_configs, runtime, in_background=True)
-        return True
-
     def load_tools(self, tool_paths: list[str], dependencies: dict[type[Any], Any]) -> None:
         """
         Load tools from paths like `kimi_cli.tools.shell:Shell`.
@@ -400,232 +338,9 @@ class KimiToolset:
                 args.append(dependencies[param.annotation])
         return tool_cls(*args)
 
-    # TODO(rc): remove `in_background` parameter and always load in background
-    async def load_mcp_tools(
-        self, mcp_configs: list[MCPConfig], runtime: Runtime, in_background: bool = True
-    ) -> None:
-        """
-        Load MCP tools from specified MCP configs.
-
-        Raises:
-            MCPRuntimeError(KimiCLIException, RuntimeError): When any MCP server cannot be
-                connected.
-        """
-        import fastmcp
-        from fastmcp.mcp_config import MCPConfig, RemoteMCPServer
-
-        from kimi_cli.ui.shell.prompt import toast
-
-        async def _check_oauth_tokens(server_url: str) -> bool:
-            """Check if OAuth tokens exist for the server."""
-            try:
-                from fastmcp.client.auth.oauth import FileTokenStorage
-
-                storage = FileTokenStorage(server_url=server_url)
-                tokens = await storage.get_tokens()
-                return tokens is not None
-            except Exception:
-                return False
-
-        def _toast_mcp(message: str) -> None:
-            if in_background:
-                toast(
-                    message,
-                    duration=10.0,
-                    topic="mcp",
-                    immediate=True,
-                    position="right",
-                )
-
-        oauth_servers: dict[str, str] = {}
-
-        async def _connect_server(
-            server_name: str, server_info: MCPServerInfo
-        ) -> tuple[str, Exception | None]:
-            if server_info.status != "pending":
-                return server_name, None
-
-            server_info.status = "connecting"
-            try:
-                async with server_info.client as client:
-                    for tool in await client.list_tools():
-                        server_info.tools.append(
-                            MCPTool(server_name, tool, client, runtime=runtime)
-                        )
-
-                for tool in server_info.tools:
-                    self.add(tool)
-
-                server_info.status = "connected"
-                logger.info("Connected MCP server: {server_name}", server_name=server_name)
-                return server_name, None
-            except Exception as e:
-                logger.error(
-                    "Failed to connect MCP server: {server_name}, error: {error}",
-                    server_name=server_name,
-                    error=e,
-                )
-                server_info.status = "failed"
-                return server_name, e
-
-        async def _connect():
-            _toast_mcp("connecting to mcp servers...")
-            unauthorized_servers: dict[str, str] = {}
-            for server_name, server_info in self._mcp_servers.items():
-                server_url = oauth_servers.get(server_name)
-                if not server_url:
-                    continue
-                if not await _check_oauth_tokens(server_url):
-                    logger.warning(
-                        "Skipping OAuth MCP server '{server_name}': not authorized. "
-                        "Run 'kimi mcp auth {server_name}' first.",
-                        server_name=server_name,
-                    )
-                    server_info.status = "unauthorized"
-                    unauthorized_servers[server_name] = server_url
-
-            tasks = [
-                asyncio.create_task(_connect_server(server_name, server_info))
-                for server_name, server_info in self._mcp_servers.items()
-                if server_info.status == "pending"
-            ]
-            results = await asyncio.gather(*tasks) if tasks else []
-            failed_servers = {name: error for name, error in results if error is not None}
-
-            for mcp_config in mcp_configs:
-                # Skip empty MCP configs (no servers defined)
-                if not mcp_config.mcpServers:
-                    logger.debug("Skipping empty MCP config: {mcp_config}", mcp_config=mcp_config)
-                    continue
-
-            if failed_servers:
-                _toast_mcp("mcp connection failed")
-                raise MCPRuntimeError(f"Failed to connect MCP servers: {failed_servers}")
-            if unauthorized_servers:
-                _toast_mcp("mcp authorization needed")
-            else:
-                _toast_mcp("mcp servers connected")
-
-        for mcp_config in mcp_configs:
-            if not mcp_config.mcpServers:
-                logger.debug("Skipping empty MCP config: {mcp_config}", mcp_config=mcp_config)
-                continue
-
-            for server_name, server_config in mcp_config.mcpServers.items():
-                if isinstance(server_config, RemoteMCPServer) and server_config.auth == "oauth":
-                    oauth_servers[server_name] = server_config.url
-
-                client = fastmcp.Client(MCPConfig(mcpServers={server_name: server_config}))
-                self._mcp_servers[server_name] = MCPServerInfo(
-                    status="pending", client=client, tools=[]
-                )
-
-        if in_background:
-            self._mcp_loading_task = asyncio.create_task(_connect())
-        else:
-            await _connect()
-
-    def has_pending_mcp_tools(self) -> bool:
-        """Return True if the background MCP tool-loading task is still running."""
-        return self._mcp_loading_task is not None and not self._mcp_loading_task.done()
-
-    async def wait_for_mcp_tools(self) -> None:
-        """Wait for background MCP tool loading to finish."""
-        task = self._mcp_loading_task
-        if not task:
-            return
-        try:
-            await task
-        finally:
-            if self._mcp_loading_task is task and task.done():
-                self._mcp_loading_task = None
-
     async def cleanup(self) -> None:
         """Cleanup any resources held by the toolset."""
-        self._deferred_mcp_load = None
-        if self._mcp_loading_task:
-            self._mcp_loading_task.cancel()
-            with contextlib.suppress(Exception):
-                await self._mcp_loading_task
-        for server_info in self._mcp_servers.values():
-            await server_info.client.close()
-
-
-@dataclass(slots=True)
-class MCPServerInfo:
-    status: Literal["pending", "connecting", "connected", "failed", "unauthorized"]
-    client: fastmcp.Client[Any]
-    tools: list[MCPTool[Any]]
-
-
-class MCPTool[T: ClientTransport](CallableTool):
-    def __init__(
-        self,
-        server_name: str,
-        mcp_tool: mcp.Tool,
-        client: fastmcp.Client[T],
-        *,
-        runtime: Runtime,
-        **kwargs: Any,
-    ):
-        super().__init__(
-            name=mcp_tool.name,
-            description=(
-                f"This is an MCP (Model Context Protocol) tool from MCP server `{server_name}`.\n\n"
-                f"{mcp_tool.description or 'No description provided.'}"
-            ),
-            parameters=mcp_tool.inputSchema,
-            **kwargs,
-        )
-        self._mcp_tool = mcp_tool
-        self._client = client
-        self._runtime = runtime
-        self._timeout = timedelta(milliseconds=runtime.config.mcp.client.tool_call_timeout_ms)
-        self._action_name = f"mcp:{mcp_tool.name}"
-
-    async def __call__(self, *args: Any, **kwargs: Any) -> ToolReturnValue:
-        description = f"Call MCP tool `{self._mcp_tool.name}`."
-        result = await self._runtime.approval.request(self.name, self._action_name, description)
-        if not result:
-            return result.rejection_error()
-
-        try:
-            async with self._client as client:
-                result = await client.call_tool(
-                    self._mcp_tool.name,
-                    kwargs,
-                    timeout=self._timeout,
-                    raise_on_error=False,
-                )
-                if result.is_error:
-                    logger.warning(
-                        "MCP tool returned error: {tool_name}: {content}",
-                        tool_name=self._mcp_tool.name,
-                        content=[str(p) for p in result.content][:3],
-                    )
-                return convert_mcp_tool_result(result)
-        except Exception as e:
-            # fastmcp raises `RuntimeError` on timeout and we cannot tell it from other errors
-            exc_msg = str(e).lower()
-            if "timeout" in exc_msg or "timed out" in exc_msg:
-                logger.warning(
-                    "MCP tool call timed out: {tool_name}: {error}",
-                    tool_name=self._mcp_tool.name,
-                    error=e,
-                )
-                return ToolError(
-                    message=(
-                        f"Timeout while calling MCP tool `{self._mcp_tool.name}`. "
-                        "You may explain to the user that the timeout config is set too low."
-                    ),
-                    brief="Timeout",
-                )
-            logger.error(
-                "MCP tool call failed: {tool_name}: {error}",
-                tool_name=self._mcp_tool.name,
-                error=e,
-            )
-            raise
+        pass
 
 
 class WireExternalTool(CallableTool):
@@ -668,91 +383,3 @@ class WireExternalTool(CallableTool):
                 message=f"External tool call failed: {e}",
                 brief="External tool error",
             )
-
-
-# Maximum characters allowed in MCP tool output before truncation.
-# Built-in tools use 50K via ToolResultBuilder; MCP gets a wider budget because
-# multi-part results (e.g. text + image) are common, but still needs a cap to
-# prevent context overflow from tools like Playwright that return full DOMs.
-MCP_MAX_OUTPUT_CHARS = 100_000
-
-
-def _media_part_size(part: ContentPart) -> int | None:
-    """Return the payload size of a media part, or ``None`` for non-media parts."""
-    if isinstance(part, ImageURLPart):
-        return len(part.image_url.url)
-    if isinstance(part, AudioURLPart):
-        return len(part.audio_url.url)
-    if isinstance(part, VideoURLPart):
-        return len(part.video_url.url)
-    return None
-
-
-def convert_mcp_tool_result(result: CallToolResult) -> ToolReturnValue:
-    """Convert MCP tool result to kosong tool return value.
-
-    All content — text *and* inline media (``data:`` URLs) — is subject to
-    a shared *MCP_MAX_OUTPUT_CHARS* character budget.  Text parts are
-    truncated in-place; media parts that exceed the remaining budget are
-    dropped and replaced with a descriptive placeholder.
-
-    Unsupported content types are caught and replaced with a ``TextPart``
-    placeholder instead of crashing the turn.
-    """
-    content: list[ContentPart] = []
-    char_budget = MCP_MAX_OUTPUT_CHARS
-    truncated = False
-
-    for part in result.content:
-        try:
-            converted = convert_mcp_content(part)
-        except ValueError as exc:
-            logger.warning(
-                "Skipping unsupported MCP content part: {error}",
-                error=exc,
-            )
-            converted = TextPart(text=f"[Unsupported content: {exc}]")
-
-        # --- budget enforcement (text) ---
-        if isinstance(converted, TextPart):
-            if char_budget <= 0:
-                truncated = True
-                continue
-            if len(converted.text) > char_budget:
-                converted = TextPart(text=converted.text[:char_budget])
-                truncated = True
-            char_budget -= len(converted.text)
-            content.append(converted)
-            continue
-
-        # --- budget enforcement (media: image / audio / video) ---
-        media_size = _media_part_size(converted)
-        if media_size is not None:
-            if media_size > char_budget:
-                truncated = True
-                continue  # drop the oversized media part silently
-            char_budget -= media_size
-            content.append(converted)
-            continue
-
-        # Unknown ContentPart subclass — pass through without budget impact
-        content.append(converted)
-
-    if truncated:
-        content.append(
-            TextPart(
-                text=(
-                    f"\n\n[Output truncated: exceeded {MCP_MAX_OUTPUT_CHARS} character limit. "
-                    "Use pagination or more specific queries to get remaining content.]"
-                )
-            )
-        )
-
-    if result.is_error:
-        return ToolError(
-            output=content,
-            message="Tool returned an error. The output may be error message or incomplete output",
-            brief="",
-        )
-    else:
-        return ToolOk(output=content)

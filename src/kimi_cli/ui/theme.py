@@ -168,40 +168,6 @@ _TOOLBAR_LIGHT = ToolbarColors(
 
 
 # ---------------------------------------------------------------------------
-# MCP status prompt colors (used by ui/shell/mcp_status.py)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True, slots=True)
-class MCPPromptColors:
-    text: str
-    detail: str
-    connected: str
-    connecting: str
-    pending: str
-    failed: str
-
-
-_MCP_PROMPT_DARK = MCPPromptColors(
-    text="fg:#d4d4d4",
-    detail="fg:#7c8594",
-    connected="fg:#56d364",
-    connecting="fg:#56a4ff",
-    pending="fg:#f2cc60",
-    failed="fg:#ff7b72",
-)
-
-_MCP_PROMPT_LIGHT = MCPPromptColors(
-    text="fg:#374151",
-    detail="fg:#6b7280",
-    connected="fg:#166534",
-    connecting="fg:#1d4ed8",
-    pending="fg:#92400e",
-    failed="fg:#dc2626",
-)
-
-
-# ---------------------------------------------------------------------------
 # Public API — resolve by theme name
 # ---------------------------------------------------------------------------
 
@@ -234,5 +200,4 @@ def get_toolbar_colors() -> ToolbarColors:
     return _TOOLBAR_LIGHT if _active_theme == "light" else _TOOLBAR_DARK
 
 
-def get_mcp_prompt_colors() -> MCPPromptColors:
-    return _MCP_PROMPT_LIGHT if _active_theme == "light" else _MCP_PROMPT_DARK
+

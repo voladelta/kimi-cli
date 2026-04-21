@@ -31,33 +31,6 @@ Kimi Code CLI can be integrated with [Visual Studio Code](https://code.visualstu
 
 ![VS Code Extension](./docs/media/vscode.png)
 
-### IDE integration via ACP
-
-Kimi Code CLI supports [Agent Client Protocol] out of the box. You can use it together with any ACP-compatible editor or IDE.
-
-[Agent Client Protocol]: https://github.com/agentclientprotocol/agent-client-protocol
-
-To use Kimi Code CLI with ACP clients, make sure to run Kimi Code CLI in the terminal and send `/login` to complete the login first. Then, you can configure your ACP client to start Kimi Code CLI as an ACP agent server with command `kimi acp`.
-
-For example, to use Kimi Code CLI with [Zed](https://zed.dev/) or [JetBrains](https://blog.jetbrains.com/ai/2025/12/bring-your-own-ai-agent-to-jetbrains-ides/), add the following configuration to your `~/.config/zed/settings.json` or `~/.jetbrains/acp.json` file:
-
-```json
-{
-  "agent_servers": {
-    "Kimi Code CLI": {
-      "type": "custom",
-      "command": "kimi",
-      "args": ["acp"],
-      "env": {}
-    }
-  }
-}
-```
-
-Then you can create Kimi Code CLI threads in IDE's agent panel.
-
-![](./docs/media/acp-integration.gif)
-
 ### Zsh integration
 
 You can use Kimi Code CLI together with Zsh, to empower your shell experience with AI agent capabilities.
@@ -79,63 +52,6 @@ plugins=(... kimi-cli)
 ```
 
 After restarting Zsh, you can switch to agent mode by pressing `Ctrl-X`.
-
-### MCP support
-
-Kimi Code CLI supports MCP (Model Context Protocol) tools.
-
-**`kimi mcp` sub-command group**
-
-You can manage MCP servers with `kimi mcp` sub-command group. For example:
-
-```sh
-# Add streamable HTTP server:
-kimi mcp add --transport http context7 https://mcp.context7.com/mcp --header "CONTEXT7_API_KEY: ctx7sk-your-key"
-
-# Add streamable HTTP server with OAuth authorization:
-kimi mcp add --transport http --auth oauth linear https://mcp.linear.app/mcp
-
-# Add stdio server:
-kimi mcp add --transport stdio chrome-devtools -- npx chrome-devtools-mcp@latest
-
-# List added MCP servers:
-kimi mcp list
-
-# Remove an MCP server:
-kimi mcp remove chrome-devtools
-
-# Authorize an MCP server:
-kimi mcp auth linear
-```
-
-**Ad-hoc MCP configuration**
-
-Kimi Code CLI also supports ad-hoc MCP server configuration via CLI option.
-
-Given an MCP config file in the well-known MCP config format like the following:
-
-```json
-{
-  "mcpServers": {
-    "context7": {
-      "url": "https://mcp.context7.com/mcp",
-      "headers": {
-        "CONTEXT7_API_KEY": "YOUR_API_KEY"
-      }
-    },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"]
-    }
-  }
-}
-```
-
-Run `kimi` with `--mcp-config-file` option to connect to the specified MCP servers:
-
-```sh
-kimi --mcp-config-file /path/to/mcp.json
-```
 
 ### More
 

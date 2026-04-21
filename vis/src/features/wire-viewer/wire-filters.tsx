@@ -78,8 +78,6 @@ const TYPE_COLORS: Record<string, string> = {
   StepInterrupted: "bg-yellow-500/20 border-yellow-500/40 text-yellow-700 dark:text-yellow-300",
   CompactionBegin: "bg-orange-500/20 border-orange-500/40 text-orange-700 dark:text-orange-300",
   CompactionEnd: "bg-orange-500/20 border-orange-500/40 text-orange-700 dark:text-orange-300",
-  MCPLoadingBegin: "bg-cyan-500/20 border-cyan-500/40 text-cyan-700 dark:text-cyan-300",
-  MCPLoadingEnd: "bg-cyan-500/20 border-cyan-500/40 text-cyan-700 dark:text-cyan-300",
   StatusUpdate: "bg-gray-500/20 border-gray-500/40 text-gray-700 dark:text-gray-300",
   Notification: "bg-yellow-500/20 border-yellow-500/40 text-yellow-700 dark:text-yellow-300",
   TextPart: "bg-gray-500/20 border-gray-500/40 text-gray-700 dark:text-gray-300",

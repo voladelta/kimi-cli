@@ -54,9 +54,9 @@ def set_context(*, device_id: str, session_id: str) -> None:
 
 
 def set_client_info(*, name: str, version: str | None = None) -> None:
-    """Set the wire/acp client name and version (e.g. VSCode 1.90.0, zed 0.180.0).
+    """Set the wire client name and version (e.g. VSCode 1.90.0, zed 0.180.0).
 
-    Called by wire/acp servers after receiving the client's initialize message.
+    Called by wire servers after receiving the client's initialize message.
     Values are passed through verbatim — backend is responsible for any
     validation, normalization or alerting on anomalous values.
     """
@@ -86,7 +86,7 @@ def disable() -> None:
 def attach_sink(sink: EventSink) -> None:
     """Attach the event sink and drain any queued events.
 
-    Multi-session ACP mode calls ``KimiCLI.create()`` per session, which
+    In multi-session mode ``KimiCLI.create()`` may be called per session, which
     means ``attach_sink`` runs again while a previous sink may hold
     un-flushed buffered events. Flush the old sink synchronously (writes
     any pending events to the disk fallback) before replacing it, so

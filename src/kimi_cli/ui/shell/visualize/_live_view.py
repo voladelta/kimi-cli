@@ -52,8 +52,6 @@ from kimi_cli.wire.types import (
     CompactionBegin,
     CompactionEnd,
     ContentPart,
-    MCPLoadingBegin,
-    MCPLoadingEnd,
     Notification,
     PlanDisplay,
     QuestionRequest,
@@ -113,7 +111,6 @@ class _LiveView:
         self._mooning_spinner = Spinner("moon", "")
         self._active_turn_depth = 0
         self._compacting_spinner: Spinner | None = None
-        self._mcp_loading_spinner: Spinner | None = None
         self._btw_spinner: Spinner | None = None
         self._btw_question: str | None = None
 
@@ -332,18 +329,15 @@ class _LiveView:
         Always safe to render regardless of modal state.
 
         Display priority (highest → lowest):
-          1. MCP loading spinner (connecting to servers)
-          2. Compaction spinner (context compaction in progress)
-          3. Content blocks + tool call blocks (streaming output)
-          4. Moon spinner fallback (turn active but nothing else visible)
+          1. Compaction spinner (context compaction in progress)
+          2. Content blocks + tool call blocks (streaming output)
+          3. Moon spinner fallback (turn active but nothing else visible)
         The btw spinner is always shown (side-channel, not mutually exclusive).
         """
         blocks: list[RenderableType] = []
         if self._btw_spinner is not None:
             blocks.append(self._btw_spinner)
-        if self._mcp_loading_spinner is not None:
-            blocks.append(self._mcp_loading_spinner)
-        elif self._compacting_spinner is not None:
+        if self._compacting_spinner is not None:
             blocks.append(self._compacting_spinner)
         else:
             has_main_content = False
@@ -384,7 +378,6 @@ class _LiveView:
 
         if isinstance(msg, StepBegin):
             self.cleanup(is_interrupt=False)
-            self._mcp_loading_spinner = None
             # Defensive: if StepBegin arrives without a preceding TurnBegin
             # (e.g. during replay), ensure the turn is considered active.
             if self._active_turn_depth == 0:
@@ -412,12 +405,6 @@ class _LiveView:
                 self.refresh_soon()
             case CompactionEnd():
                 self._compacting_spinner = None
-                self.refresh_soon()
-            case MCPLoadingBegin():
-                self._mcp_loading_spinner = Spinner("dots", "Connecting to MCP servers...")
-                self.refresh_soon()
-            case MCPLoadingEnd():
-                self._mcp_loading_spinner = None
                 self.refresh_soon()
             case BtwBegin(question=question):
                 truncated = (question[:40] + "...") if len(question) > 40 else question
@@ -614,7 +601,6 @@ class _LiveView:
 
         # Clear transient spinners to prevent visual residuals after interrupts
         self._compacting_spinner = None
-        self._mcp_loading_spinner = None
         self._btw_spinner = None
 
         if is_interrupt:

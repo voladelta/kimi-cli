@@ -73,8 +73,6 @@ from kimi_cli.wire.types import (
     CompactionBegin,
     CompactionEnd,
     ContentPart,
-    MCPLoadingBegin,
-    MCPLoadingEnd,
     StatusUpdate,
     SteerInput,
     StepBegin,
@@ -420,7 +418,6 @@ class KimiSoul:
             plan_mode=self._plan_mode,
             context_tokens=token_count,
             max_context_tokens=max_size,
-            mcp_status=self._mcp_status_snapshot(),
         )
 
     @property
@@ -444,23 +441,6 @@ class KimiSoul:
     @property
     def wire_file(self) -> WireFile:
         return self._runtime.session.wire_file
-
-    def _mcp_status_snapshot(self):
-        if not isinstance(self._agent.toolset, KimiToolset):
-            return None
-        return self._agent.toolset.mcp_status_snapshot()
-
-    async def start_background_mcp_loading(self) -> bool:
-        """Start deferred MCP loading, if any, without exposing toolset internals."""
-        if not isinstance(self._agent.toolset, KimiToolset):
-            return False
-        return await self._agent.toolset.start_deferred_mcp_tool_loading()
-
-    async def wait_for_background_mcp_loading(self) -> None:
-        """Wait for any in-flight MCP startup to finish."""
-        if not isinstance(self._agent.toolset, KimiToolset):
-            return
-        await self._agent.toolset.wait_for_mcp_tools()
 
     async def _checkpoint(self):
         await self._context.checkpoint(self._checkpoint_with_user_message)
@@ -729,38 +709,6 @@ class KimiSoul:
         # Discard any stale steers from a previous turn.
         while not self._steer_queue.empty():
             self._steer_queue.get_nowait()
-
-        if isinstance(self._agent.toolset, KimiToolset):
-            await self.start_background_mcp_loading()
-            loading = bool((snapshot := self._mcp_status_snapshot()) and snapshot.loading)
-            if loading:
-                wire_send(StatusUpdate(mcp_status=snapshot))
-                wire_send(MCPLoadingBegin())
-            try:
-                await self.wait_for_background_mcp_loading()
-                # Track MCP connection result
-                if loading:
-                    from kimi_cli.telemetry import track as _track_mcp
-
-                    mcp_snap = self._mcp_status_snapshot()
-                    if mcp_snap:
-                        if mcp_snap.connected > 0:
-                            _track_mcp(
-                                "mcp_connected",
-                                server_count=mcp_snap.connected,
-                                total_count=mcp_snap.total,
-                            )
-                        _failed = mcp_snap.total - mcp_snap.connected
-                        if _failed > 0:
-                            _track_mcp(
-                                "mcp_failed",
-                                failed_count=_failed,
-                                total_count=mcp_snap.total,
-                            )
-            finally:
-                if loading:
-                    wire_send(StatusUpdate(mcp_status=self._mcp_status_snapshot()))
-                    wire_send(MCPLoadingEnd())
 
         step_no = 0
         self._current_step_no = 0
