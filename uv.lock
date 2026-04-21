@@ -1061,13 +1061,13 @@ requires-dist = [
     { name = "httpx", extras = ["socks"], specifier = "==0.28.1" },
     { name = "jinja2", specifier = "==3.1.6" },
     { name = "keyring", specifier = ">=25.7.0" },
-    { name = "kosong", extras = ["contrib"], editable = "packages/kosong" },
+    { name = "kosong", extras = ["contrib"], editable = "src/kimi/kosong" },
     { name = "loguru", specifier = ">=0.6.0,<0.8" },
     { name = "lxml", specifier = "==6.0.2" },
     { name = "pillow", specifier = "==12.1.0" },
     { name = "prompt-toolkit", specifier = "==3.0.52" },
     { name = "pydantic", specifier = "==2.12.5" },
-    { name = "pykaos", editable = "packages/kaos" },
+    { name = "pykaos", editable = "src/kimi/kaos" },
     { name = "pyobjc-framework-cocoa", marker = "sys_platform == 'darwin'", specifier = ">=12.1" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "rich", specifier = "==14.2.0" },
@@ -1126,7 +1126,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "kosong", editable = "packages/kosong" }]
+requires-dist = [{ name = "kosong", editable = "src/kimi/kosong" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1143,7 +1143,7 @@ dev = [
 [[package]]
 name = "kosong"
 version = "0.50.0"
-source = { editable = "packages/kosong" }
+source = { editable = "src/kimi/kosong" }
 dependencies = [
     { name = "jsonschema" },
     { name = "loguru", version = "0.6.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
@@ -1982,7 +1982,7 @@ wheels = [
 [[package]]
 name = "pykaos"
 version = "0.9.0"
-source = { editable = "packages/kaos" }
+source = { editable = "src/kimi/kaos" }
 dependencies = [
     { name = "aiofiles" },
     { name = "asyncssh" },
