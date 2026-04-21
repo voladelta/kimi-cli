@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from jinja2 import Environment as JinjaEnvironment
 from jinja2 import FileSystemLoader, StrictUndefined, TemplateError, UndefinedError

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import importlib
 import inspect
 import json
 import time
 from contextvars import ContextVar
-from dataclasses import dataclass
-from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from kosong.tooling import (
     CallableTool,
@@ -18,7 +15,6 @@ from kosong.tooling import (
     HandleResult,
     Tool,
     ToolError,
-    ToolOk,
     Toolset,
 )
 from kosong.tooling.error import (
@@ -33,16 +29,11 @@ from kimi_cli.exception import InvalidToolError
 from kimi_cli.hooks.engine import HookEngine
 from kimi_cli.tools import SkipThisTool
 from kimi_cli.wire.types import (
-    ContentPart,
-    TextPart,
     ToolCall,
     ToolCallRequest,
     ToolResult,
     ToolReturnValue,
 )
-
-if TYPE_CHECKING:
-     from kimi_cli.soul.agent import Runtime
 
 current_tool_call = ContextVar[ToolCall | None]("current_tool_call", default=None)
 

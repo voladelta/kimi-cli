@@ -308,7 +308,6 @@ def kimi(
     """Kimi, your next CLI agent."""
     import asyncio
     import contextlib
-    import json
 
     from kimi_cli.utils.proctitle import init_process_name
 

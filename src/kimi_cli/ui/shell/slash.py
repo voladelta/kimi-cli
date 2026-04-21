@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import asyncio
+
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from prompt_toolkit.shortcuts.choice_input import ChoiceInput
 
-from kimi_cli import logger
+
 from kimi_cli.auth.platforms import get_platform_name_for_provider, refresh_managed_models
 from kimi_cli.cli import Reload, SwitchToVis
 from kimi_cli.config import load_config, save_config
