@@ -97,17 +97,12 @@ async def main():
     parser = ArgumentParser(description="A simple agent.")
     parser.add_argument(
         "provider",
-        choices=["kimi", "openai", "anthropic", "google"],
+        choices=["kimi", "openai"],
         help="The chat provider to use.",
-    )
-    parser.add_argument(
-        "--with-bash",
-        action="store_true",
-        help="Enable Bash tool.",
     )
     args = parser.parse_args()
 
-    provider: Literal["kimi", "openai", "anthropic", "google"] = args.provider
+    provider: Literal["kimi", "openai"] = args.provider
     with_bash: bool = args.with_bash
 
     provider_upper = provider.upper()
@@ -132,27 +127,6 @@ async def main():
             model = model or "gpt-5"
 
             chat_provider = OpenAIResponses(base_url=base_url, api_key=api_key, model=model)
-        case "anthropic":
-            from kosong.contrib.chat_provider.anthropic import Anthropic
-
-            base_url = base_url or "https://api.anthropic.com"
-            assert api_key is not None, "Expect ANTHROPIC_API_KEY environment variable"
-            model = model or "claude-sonnet-4-5"
-
-            chat_provider = Anthropic(
-                base_url=base_url, api_key=api_key, model=model, default_max_tokens=50_000
-            )
-        case "google":
-            from kosong.contrib.chat_provider.google_genai import GoogleGenAI
-
-            api_key = api_key or os.getenv("GEMINI_API_KEY")
-            assert api_key is not None, (
-                "Expect GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
-            )
-            model = model or "gemini-3-pro-preview"
-            chat_provider = GoogleGenAI(
-                base_url=base_url, api_key=api_key, model=model
-            ).with_thinking("high")
 
     toolset = SimpleToolset()
     if with_bash:

@@ -257,36 +257,15 @@ class ChaosStreamedMessage:
 
 
 if __name__ == "__main__":
+    import asyncio
 
-    async def _dev_main_anthropic():
+    async def _dev_main():
         from dotenv import load_dotenv
 
-        from kosong.contrib.chat_provider.anthropic import Anthropic
         from kosong.message import Message, TextPart
 
         load_dotenv()
 
-        provider = Anthropic(
-            model="claude-3-5-sonnet-latest",
-            api_key=os.getenv("ANTHROPIC_API_KEY"),
-            default_max_tokens=64,
-            stream=True,
-        )
-        chat = ChaosChatProvider(
-            provider,
-            ChaosConfig(
-                error_probability=0.0,
-                corrupt_tool_call_probability=0.2,
-                seed=42,
-            ),
-        )
-        history = [Message(role="user", content=[TextPart(text="Say hello briefly.")])]
-        stream = await chat.generate(system_prompt="", tools=[], history=history)
-        async for part in stream:
-            print(part.model_dump(exclude_none=True))
-        print("id:", stream.id)
-        print("usage:", stream.usage)
+        print("ChaosChatProvider dev mode - requires a valid provider")
 
-    import asyncio
-
-    asyncio.run(_dev_main_anthropic())
+    asyncio.run(_dev_main())
