@@ -8,7 +8,7 @@ import time
 import warnings
 from collections.abc import AsyncGenerator, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import kaos
 from kaos.path import KaosPath
@@ -33,10 +33,6 @@ from kimi_cli.utils.logging import logger, open_original_stderr, redirect_stderr
 from kimi_cli.utils.path import shorten_home
 from kimi_cli.wire import Wire, WireUISide
 from kimi_cli.wire.types import ApprovalRequest, ApprovalResponse, ContentPart, WireMessage
-
-if TYPE_CHECKING:
-    from fastmcp.mcp_config import MCPConfig
-
 
 def _patch_session_id(record: dict[str, Any]) -> None:
     """Inject the current session ID (from ContextVar) into log records."""
@@ -132,14 +128,12 @@ class KimiCLI:
         ui_mode: str = "shell",
         # Extensions
         agent_file: Path | None = None,
-        mcp_configs: list[MCPConfig] | list[dict[str, Any]] | None = None,
         skills_dirs: list[KaosPath] | None = None,
         # Loop control
         max_steps_per_turn: int | None = None,
         max_retries_per_step: int | None = None,
         max_ralph_iterations: int | None = None,
         startup_progress: Callable[[str], None] | None = None,
-        defer_mcp_loading: bool = False,
     ) -> KimiCLI:
         """
         Create a KimiCLI instance.
@@ -152,8 +146,6 @@ class KimiCLI:
             thinking (bool | None, optional): Whether to enable thinking mode. Defaults to None.
             yolo (bool, optional): Approve all actions without confirmation. Defaults to False.
             agent_file (Path | None, optional): Path to the agent file. Defaults to None.
-            mcp_configs (list[MCPConfig | dict[str, Any]] | None, optional): MCP configs to load
-                MCP tools from. Defaults to None.
             skills_dirs (list[KaosPath] | None, optional): Custom skills directories that
                 override default user/project discovery. Defaults to None.
             max_steps_per_turn (int | None, optional): Maximum number of steps in one turn.
@@ -164,8 +156,6 @@ class KimiCLI:
                 Ralph mode. Defaults to None.
             startup_progress (Callable[[str], None] | None, optional): Progress callback used by
                 interactive startup UI. Defaults to None.
-            defer_mcp_loading (bool, optional): Defer MCP startup until the interactive shell is
-                ready. Defaults to False.
 
         Raises:
             FileNotFoundError: When the agent file is not found.
@@ -280,13 +270,8 @@ class KimiCLI:
             startup_progress("Loading agent...")
 
         _phase_t = time.monotonic()
-        agent = await load_agent(
-            agent_file,
-            runtime,
-            mcp_configs=mcp_configs or [],
-            start_mcp_loading=not defer_mcp_loading,
-        )
-        _phase_timings_ms["mcp_ms"] = int((time.monotonic() - _phase_t) * 1000)
+        agent = await load_agent(agent_file, runtime)
+        _phase_timings_ms["load_agent_ms"] = int((time.monotonic() - _phase_t) * 1000)
 
         if startup_progress is not None:
             startup_progress("Restoring conversation...")
@@ -352,7 +337,7 @@ class KimiCLI:
             duration_ms=int((time.monotonic() - _create_t0) * 1000),
             config_ms=_phase_timings_ms.get("config_ms", 0),
             init_ms=_phase_timings_ms.get("init_ms", 0),
-            mcp_ms=_phase_timings_ms.get("mcp_ms", 0),
+            mcp_ms=_phase_timings_ms.get("load_agent_ms", 0),
         )
 
         return KimiCLI(soul, runtime, env_overrides, bg_refresh_task)
