@@ -20,10 +20,6 @@ type ProviderType = Literal[
     "kimi",
     "openai_legacy",
     "openai_responses",
-    "anthropic",
-    "google_genai",  # for backward-compatibility, equals to `gemini`
-    "gemini",
-    "vertexai",
     "_echo",
     "_scripted_echo",
     "_chaos",
@@ -168,37 +164,6 @@ def create_llm(
                 model=model.model,
                 base_url=provider.base_url,
                 api_key=resolved_api_key,
-                default_headers=dict(provider.custom_headers) if provider.custom_headers else None,
-            )
-        case "anthropic":
-            from kosong.contrib.chat_provider.anthropic import Anthropic
-
-            chat_provider = Anthropic(
-                model=model.model,
-                base_url=provider.base_url,
-                api_key=resolved_api_key,
-                default_max_tokens=50000,
-                metadata={"user_id": session_id} if session_id else None,
-                default_headers=dict(provider.custom_headers) if provider.custom_headers else None,
-            )
-        case "google_genai" | "gemini":
-            from kosong.contrib.chat_provider.google_genai import GoogleGenAI
-
-            chat_provider = GoogleGenAI(
-                model=model.model,
-                base_url=provider.base_url,
-                api_key=resolved_api_key,
-                default_headers=dict(provider.custom_headers) if provider.custom_headers else None,
-            )
-        case "vertexai":
-            from kosong.contrib.chat_provider.google_genai import GoogleGenAI
-
-            os.environ.update(provider.env or {})
-            chat_provider = GoogleGenAI(
-                model=model.model,
-                base_url=provider.base_url,
-                api_key=resolved_api_key,
-                vertexai=True,
                 default_headers=dict(provider.custom_headers) if provider.custom_headers else None,
             )
         case "_echo":
